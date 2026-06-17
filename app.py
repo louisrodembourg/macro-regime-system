@@ -116,6 +116,15 @@ def load_signals(prices_hash: str, prices: pd.DataFrame) -> dict:
 @st.cache_data(show_spinner=False)
 def load_hmm(features_hash: str, prices: pd.DataFrame, zscores: pd.DataFrame) -> dict:
     features = build_hmm_features(prices, zscores)
+    valid_rows = features.dropna()
+    if len(valid_rows) < 100:
+        missing = [c for c in features.columns if features[c].isna().all()]
+        raise RuntimeError(
+            f"Données insuffisantes pour l'HMM ({len(valid_rows)} lignes valides). "
+            f"Colonnes entièrement vides : {missing}. "
+            "Probablement un rate-limit yfinance au démarrage — "
+            "cliquez sur 'Refresh Data' dans la barre latérale ou relancez l'app dans 30 secondes."
+        )
     result = run_walk_forward_hmm(features)
     gmm_model, gmm_labels = fit_gmm(features)
     return {
@@ -221,7 +230,11 @@ def page_dashboard():
         composite = signals["composite"]
 
     with st.spinner("Détection des régimes (HMM walk-forward)..."):
-        hmm_data = load_hmm(_df_hash(prices), prices, zscores)
+        try:
+            hmm_data = load_hmm(_df_hash(prices), prices, zscores)
+        except RuntimeError as e:
+            st.error(str(e))
+            st.stop()
 
     hmm_states = hmm_data["states"]
     hmm_proba = hmm_data["probabilities"]
@@ -352,7 +365,11 @@ def page_ratios():
     with st.spinner("Chargement..."):
         prices = load_prices(start="2004-01-01", end=today)
         signals = load_signals(_df_hash(prices), prices)
-        hmm_data = load_hmm(_df_hash(prices), prices, signals["zscores"])
+        try:
+            hmm_data = load_hmm(_df_hash(prices), prices, signals["zscores"])
+        except RuntimeError as e:
+            st.error(str(e))
+            st.stop()
         quadrant_data = load_quadrants(
             _df_hash(signals["zscores"]),
             _df_hash(hmm_data["probabilities"]),
@@ -394,7 +411,11 @@ def page_regimes():
     with st.spinner("Calcul des régimes historiques..."):
         prices = load_prices(start="2004-01-01", end=today)
         signals = load_signals(_df_hash(prices), prices)
-        hmm_data = load_hmm(_df_hash(prices), prices, signals["zscores"])
+        try:
+            hmm_data = load_hmm(_df_hash(prices), prices, signals["zscores"])
+        except RuntimeError as e:
+            st.error(str(e))
+            st.stop()
         quadrant_data = load_quadrants(
             _df_hash(signals["zscores"]),
             _df_hash(hmm_data["probabilities"]),
@@ -450,7 +471,11 @@ def page_backtest():
     with st.spinner("Calcul du backtest..."):
         prices = load_prices(start="2004-01-01", end=today)
         signals = load_signals(_df_hash(prices), prices)
-        hmm_data = load_hmm(_df_hash(prices), prices, signals["zscores"])
+        try:
+            hmm_data = load_hmm(_df_hash(prices), prices, signals["zscores"])
+        except RuntimeError as e:
+            st.error(str(e))
+            st.stop()
         quadrant_data = load_quadrants(
             _df_hash(signals["zscores"]),
             _df_hash(hmm_data["probabilities"]),
