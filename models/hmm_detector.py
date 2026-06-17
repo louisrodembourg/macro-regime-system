@@ -1,11 +1,22 @@
 import logging
 import warnings
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 import numpy as np
 import pandas as pd
-from hmmlearn import hmm
 from sklearn.mixture import GaussianMixture
+
+try:
+    from hmmlearn import hmm as _hmmlearn_hmm
+    _GaussianHMM = _hmmlearn_hmm.GaussianHMM
+except Exception:
+    # hmmlearn has compiled C extensions that break on some Python versions
+    # (e.g. Python 3.14 on Streamlit Cloud). Fall back to pure-NumPy implementation.
+    from models._hmm_numpy import GaussianHMM as _GaussianHMM
+    logger_bootstrap = logging.getLogger(__name__)
+    logger_bootstrap.warning(
+        "hmmlearn not available — using pure-NumPy GaussianHMM fallback"
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +28,7 @@ REGIME_COLORS = {0: "#10B981", 1: "#F59E0B", 2: "#EF4444"}
 class HMMResult(NamedTuple):
     states: pd.Series           # semantic regime label (0/1/2) per date
     probabilities: pd.DataFrame # shape (n_dates, 3), columns = [0,1,2]
-    model: hmm.GaussianHMM     # last fitted model (for transition matrix viz)
+    model: Any                  # last fitted model (for transition matrix viz)
     state_order: np.ndarray     # relabeling mapping from last window
 
 
@@ -47,8 +58,8 @@ def build_hmm_features(
     return features
 
 
-def _fit_hmm(X: np.ndarray, n_iter: int = 200) -> hmm.GaussianHMM:
-    model = hmm.GaussianHMM(
+def _fit_hmm(X: np.ndarray, n_iter: int = 200) -> Any:
+    model = _GaussianHMM(
         n_components=HMM_N_STATES,
         covariance_type="full",
         n_iter=n_iter,
@@ -63,7 +74,7 @@ def _fit_hmm(X: np.ndarray, n_iter: int = 200) -> hmm.GaussianHMM:
     return model
 
 
-def _get_state_order(model: hmm.GaussianHMM) -> np.ndarray:
+def _get_state_order(model: Any) -> np.ndarray:
     """Sort states by sp500_20d_vol mean (feature index 1) ascending.
     Returns state_order where state_order[semantic_label] = internal_label.
     Bull=0 (lowest vol), Transition=1, Crisis=2 (highest vol)."""
