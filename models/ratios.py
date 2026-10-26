@@ -13,6 +13,7 @@ RATIO_DEFINITIONS: dict[str, tuple[str, str]] = {
 
 ZSCORE_WINDOW = 252
 DIRECTION_WINDOW = 20
+MA_7Y_WINDOW = 252 * 7  # ~1764 trading days
 
 
 def compute_ratios(prices: pd.DataFrame) -> pd.DataFrame:
@@ -35,6 +36,14 @@ def compute_zscores(
     """Rolling z-score: (x - rolling_mean) / rolling_std. First (window-1) rows are NaN."""
     roll = ratios.rolling(window, min_periods=window)
     return (ratios - roll.mean()) / roll.std()
+
+
+def compute_long_term_ma(
+    ratios: pd.DataFrame,
+    window: int = MA_7Y_WINDOW,
+) -> pd.DataFrame:
+    """Rolling 7-year mean of ratio levels. min_periods=window//2 to show from ~3.5y of data."""
+    return ratios.rolling(window, min_periods=window // 2).mean()
 
 
 def compute_directions(

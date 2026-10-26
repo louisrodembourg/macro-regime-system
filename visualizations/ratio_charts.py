@@ -132,6 +132,7 @@ def plot_ratio_with_zscore(
     zscores: pd.DataFrame,
     ratio_name: str,
     regime_labels: pd.Series | None = None,
+    long_term_ma: pd.DataFrame | None = None,
 ) -> go.Figure:
     """3-panel chart: raw ratio level / z-score with Bollinger bands / regime distribution."""
     label, description = RATIO_DESCRIPTIONS.get(ratio_name, (ratio_name, ""))
@@ -154,6 +155,18 @@ def plot_ratio_with_zscore(
         name=label,
         line=dict(color="#60A5FA", width=1.5),
     ), row=1, col=1)
+
+    # Panel 1: 7-year moving average overlay
+    if long_term_ma is not None and ratio_name in long_term_ma.columns:
+        ma_series = long_term_ma[ratio_name].dropna()
+        if not ma_series.empty:
+            fig.add_trace(go.Scatter(
+                x=ma_series.index,
+                y=ma_series.values,
+                name="MM 7 ans",
+                line=dict(color="#F59E0B", width=1.8, dash="dot"),
+                opacity=0.85,
+            ), row=1, col=1)
 
     # Regime background on raw ratio
     if regime_labels is not None:
@@ -179,7 +192,8 @@ def plot_ratio_with_zscore(
     fig.update_layout(
         template=PLOTLY_TEMPLATE,
         height=550,
-        showlegend=False,
+        showlegend=True,
+        legend=dict(orientation="h", y=-0.12),
         hovermode="x unified",
         margin=dict(t=60, b=10),
     )

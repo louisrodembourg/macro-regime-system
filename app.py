@@ -39,6 +39,7 @@ from models.ratios import (
     RATIO_DEFINITIONS,
     compute_composite_signals,
     compute_directions,
+    compute_long_term_ma,
     compute_ratios,
     compute_zscores,
 )
@@ -105,11 +106,13 @@ def load_signals(prices_hash: str, prices: pd.DataFrame) -> dict:
     zscores = compute_zscores(ratios)
     directions = compute_directions(ratios)
     composite = compute_composite_signals(zscores, directions)
+    long_term_ma = compute_long_term_ma(ratios)
     return {
         "ratios": ratios,
         "zscores": zscores,
         "directions": directions,
         "composite": composite,
+        "long_term_ma": long_term_ma,
     }
 
 
@@ -388,10 +391,14 @@ def page_ratios():
     ratios_period = signals["ratios"].loc[start:]
     zscores_period = signals["zscores"].loc[start:]
     quad_period = quadrant_data["quadrant_labels"].loc[start:]
+    # Pass full-history MA so the 7-year window can warm up before the display period
+    long_term_ma = signals["long_term_ma"].loc[start:]
 
     current_z = float(zscores_period[ratio_name].dropna().iloc[-1]) if not zscores_period[ratio_name].dropna().empty else 0.0
 
-    chart, description = plot_ratio_with_zscore(ratios_period, zscores_period, ratio_name, quad_period)
+    chart, description = plot_ratio_with_zscore(
+        ratios_period, zscores_period, ratio_name, quad_period, long_term_ma
+    )
     st.plotly_chart(chart, use_container_width=True)
 
     with st.expander("Interprétation du ratio", expanded=True):
